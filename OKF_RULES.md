@@ -1,6 +1,6 @@
 # Open Knowledge Format (OKF v0.2) - Core System Rules
 
-This document distills the **Open Knowledge Format (OKF v0.2)** specification ([`SPEC.md`](file:///Users/erfan/Projects/mcp-memory/SPEC.md)) into concise rules for AI agents, memory engines, and tools generating or consuming persistent knowledge records.
+This document distills the **Open Knowledge Format (OKF v0.2)** specification ([`SPEC.md`](SPEC.md)) into concise rules for AI agents, memory engines, and tools generating or consuming persistent knowledge records.
 
 ---
 

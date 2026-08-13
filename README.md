@@ -2,7 +2,7 @@
 
 **MCP-Memory** is a Model Context Protocol (MCP) server that equips AI agents (such as Claude Desktop, Cursor, Antigravity, Windsurf, or Codex) with persistent, long-term memory capabilities.
 
-Memory records are formatted using the **Open Knowledge Format (OKF v0.2)** standard and indexed with a local **SQLite** instance (supporting FTS5 full-text search) for fast key-value lookups, tag filtering, and content search.
+Memory records are formatted using the [**Open Knowledge Format (OKF v0.2)**](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) standard and indexed with a local **SQLite** instance (supporting FTS5 full-text search) for fast key-value lookups, tag filtering, and content search.
 
 > **Fast Track:** [Jump directly to Quick Start](#quick-start)
 

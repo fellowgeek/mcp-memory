@@ -1,0 +1,3 @@
+# MCP Framework for building the server
+fastmcp<=3
+pyyaml>=6.0

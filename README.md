@@ -113,8 +113,10 @@ Run `setup.py` to auto-detect and register `mcp-memory` with your AI tools:
 python3 setup.py
 ```
 
-### 3. Run Manually via CLI
-`run.sh` automatically provisions a Python virtual environment (`.venv`), installs `requirements.txt`, and launches `memory_server.py`:
+> **Note:** Once `setup.py` finishes configuring your tools, your AI client will launch `mcp-memory` automatically in the background whenever needed. You do not need to manually start or keep a server process running in your terminal.
+
+### 3. Run Manually via CLI (Optional / Debugging)
+If you want to manually verify startup, inspect stdio output, or pre-initialize the virtual environment (`.venv`), you can run `run.sh` directly:
 
 ```bash
 ./run.sh

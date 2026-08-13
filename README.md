@@ -4,6 +4,8 @@
 
 Memory records are formatted using the **Open Knowledge Format (OKF v0.2)** standard and indexed with a local **SQLite** instance (supporting FTS5 full-text search) for fast key-value lookups, tag filtering, and content search.
 
+> **Fast Track:** [Jump directly to Quick Start](#quick-start)
+
 ---
 
 ## Key Features

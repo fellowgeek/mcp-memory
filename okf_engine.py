@@ -230,14 +230,34 @@ def validate_okf_conformance(raw_payload: str) -> Dict[str, Any]:
 
 
 def get_memory_file_path(key: str, namespace: str = "default", base_dir: str = "memory") -> str:
-    """Determine physical file path for a given memory key and namespace."""
+    """Determine physical file path for a given memory key and namespace.
+
+    The key is sanitized so it can never escape ``base_dir``: parent
+    segments (``..``) and absolute paths are rejected/normalized, and the
+    final resolved path is verified to stay inside the store.
+    """
     clean_key = key.lstrip("/").rstrip("/")
     if not clean_key.endswith(".md"):
         clean_key += ".md"
 
     if namespace and namespace != "default":
-        return os.path.join(base_dir, namespace, clean_key)
-    return os.path.join(base_dir, clean_key)
+        candidate = os.path.join(base_dir, namespace, clean_key)
+    else:
+        candidate = os.path.join(base_dir, clean_key)
+
+    # Containment check: resolve symlinks/.. and require the result to
+    # remain inside the store root.
+    root = os.path.realpath(base_dir)
+    resolved = os.path.realpath(candidate)
+    if not (resolved == root or resolved.startswith(root + os.sep)):
+        # Escape attempt — clamp to a safe in-store path using the key's
+        # final component only.
+        safe_name = os.path.basename(clean_key)
+        if namespace and namespace != "default":
+            candidate = os.path.join(base_dir, namespace, safe_name)
+        else:
+            candidate = os.path.join(base_dir, safe_name)
+    return candidate
 
 
 def update_directory_index(dir_path: str, is_bundle_root: bool = False) -> None:

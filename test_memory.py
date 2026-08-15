@@ -7,12 +7,41 @@ import os
 import tempfile
 import unittest
 
-from okf_engine import serialize_okf, parse_okf, validate_okf_conformance
+from okf_engine import serialize_okf, parse_okf, validate_okf_conformance, get_memory_file_path
 import db
 from memory_server import memory_store, memory_retrieve, memory_search, memory_delete, memory_get_last, memory_update_last
 
 
 class TestOKFEngine(unittest.TestCase):
+    def test_memory_path_rejects_parent_traversal(self):
+        """Path traversal: a key with ../ must not escape base_dir (CVE-style)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "memory")
+            path = get_memory_file_path("../../etc/passwd", base_dir=base)
+            resolved = os.path.realpath(path)
+            # resolved path must stay inside base_dir
+            self.assertTrue(resolved.startswith(os.path.realpath(base) + os.sep),
+                            f"escaped base_dir: {resolved}")
+            self.assertNotIn("..", resolved)
+
+    def test_memory_path_rejects_absolute_key(self):
+        """An absolute key must not write outside base_dir."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "memory")
+            path = get_memory_file_path("/tmp/evil.md", base_dir=base)
+            resolved = os.path.realpath(path)
+            self.assertTrue(resolved.startswith(os.path.realpath(base) + os.sep))
+
+    def test_memory_path_normal_key_still_works(self):
+        """Normal keys keep working: namespaced paths inside base_dir."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "memory")
+            path = get_memory_file_path("user/preferences/theme", namespace="user_settings", base_dir=base)
+            resolved = os.path.realpath(path)
+            self.assertTrue(resolved.startswith(os.path.realpath(base) + os.sep))
+            self.assertTrue(resolved.endswith(".md"))
+            self.assertIn("user_settings", resolved)
+
     def test_serialize_and_parse_string_content(self):
         key = "user/preferences/theme"
         content = "User prefers dark mode with high contrast."

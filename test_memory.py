@@ -252,6 +252,92 @@ class TestDatabaseLayer(unittest.TestCase):
         retrieved_after = db.retrieve_memory(key=key, db_path=self.temp_db_path)
         self.assertIsNone(retrieved_after)
 
+    def test_rejected_key_is_not_committed_to_index(self):
+        """A key the path validator rejects must leave no row behind.
+
+        SQLite indexes the .md tree, so a row whose file was never written is
+        readable through retrieve and search while nothing backs it on disk.
+        """
+        for bad in ("../escaped", "a/../b", "..\\..\\etc\\passwd", ""):
+            with self.subTest(key=bad):
+                with self.assertRaises(ValueError):
+                    db.store_memory(
+                        key=bad,
+                        content="should not be persisted",
+                        db_path=self.temp_db_path,
+                        memories_dir=self.temp_memories_dir,
+                    )
+                self.assertIsNone(
+                    db.retrieve_memory(key=bad, db_path=self.temp_db_path),
+                    f"rejected key {bad!r} was still committed to the index",
+                )
+
+    def test_rejected_key_is_not_searchable(self):
+        """The orphan row must not surface through search either."""
+        with self.assertRaises(ValueError):
+            db.store_memory(
+                key="../escaped",
+                content="orphan marker content",
+                db_path=self.temp_db_path,
+                memories_dir=self.temp_memories_dir,
+            )
+        hits = db.search_memories(query="orphan", db_path=self.temp_db_path)
+        self.assertEqual(hits, [])
+
+    def test_rejected_namespace_is_not_committed_to_index(self):
+        """Namespace validation must gate the write for the same reason."""
+        with self.assertRaises(ValueError):
+            db.store_memory(
+                key="valid/key",
+                content="should not be persisted",
+                namespace="../evil",
+                db_path=self.temp_db_path,
+                memories_dir=self.temp_memories_dir,
+            )
+        self.assertIsNone(
+            db.retrieve_memory(key="valid/key", namespace="../evil", db_path=self.temp_db_path)
+        )
+
+    def test_delete_keeps_row_when_path_is_rejected(self):
+        """An existing row whose key cannot be resolved must survive a delete.
+
+        Seeded through raw SQL because store_memory now refuses such a key.
+        """
+        bad_key = "../escaped"
+        with db.get_connection(self.temp_db_path) as conn:
+            conn.execute(
+                "INSERT INTO memories (key, namespace, okf_payload, tags, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (bad_key, "default", "---\nkey: ../escaped\n---\n\nlegacy", "[]", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
+            )
+        self.assertIsNotNone(db.retrieve_memory(key=bad_key, db_path=self.temp_db_path))
+
+        with self.assertRaises(ValueError):
+            db.delete_memory(
+                key=bad_key,
+                db_path=self.temp_db_path,
+                memories_dir=self.temp_memories_dir,
+            )
+        self.assertIsNotNone(
+            db.retrieve_memory(key=bad_key, db_path=self.temp_db_path),
+            "row was dropped by a delete that could not resolve its file path",
+        )
+
+    def test_valid_key_still_round_trips(self):
+        """The guard must not change behaviour for keys that were always fine."""
+        for good in ("plain", "arch/decision", "nested/deep/k.md"):
+            with self.subTest(key=good):
+                record = db.store_memory(
+                    key=good,
+                    content=f"content for {good}",
+                    db_path=self.temp_db_path,
+                    memories_dir=self.temp_memories_dir,
+                )
+                self.assertTrue(os.path.exists(record["file_path"]))
+                retrieved = db.retrieve_memory(key=good, db_path=self.temp_db_path)
+                self.assertIsNotNone(retrieved)
+                self.assertEqual(retrieved["body"], f"content for {good}")
+
 
 class TestMCPTools(unittest.TestCase):
     def setUp(self):

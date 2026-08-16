@@ -14,15 +14,19 @@ from memory_server import memory_store, memory_retrieve, memory_search, memory_d
 
 class TestOKFEngine(unittest.TestCase):
     def test_memory_path_rejects_parent_traversal(self):
-        """Path traversal: a key with ../ must not escape base_dir (CVE-style)."""
+        """Path traversal: a key with ../ must raise instead of escaping base_dir."""
         with tempfile.TemporaryDirectory() as tmp:
             base = os.path.join(tmp, "memory")
-            path = get_memory_file_path("../../etc/passwd", base_dir=base)
-            resolved = os.path.realpath(path)
-            # resolved path must stay inside base_dir
-            self.assertTrue(resolved.startswith(os.path.realpath(base) + os.sep),
-                            f"escaped base_dir: {resolved}")
-            self.assertNotIn("..", resolved)
+            for bad in ("../../etc/passwd", "a/../b", "..", "sub/../../../etc/x"):
+                with self.assertRaises(ValueError, msg=f"key {bad!r} should raise"):
+                    get_memory_file_path(bad, base_dir=base)
+
+    def test_memory_path_rejects_backslash_traversal(self):
+        """Backslash-encoded traversal must raise (Windows-style escape)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "memory")
+            with self.assertRaises(ValueError):
+                get_memory_file_path("..\\..\\etc\\passwd", base_dir=base)
 
     def test_memory_path_rejects_absolute_key(self):
         """An absolute key must not write outside base_dir."""
@@ -31,6 +35,22 @@ class TestOKFEngine(unittest.TestCase):
             path = get_memory_file_path("/tmp/evil.md", base_dir=base)
             resolved = os.path.realpath(path)
             self.assertTrue(resolved.startswith(os.path.realpath(base) + os.sep))
+
+    def test_memory_path_rejects_empty_key(self):
+        """Empty keys must raise."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "memory")
+            for bad in ("", "   "):
+                with self.assertRaises(ValueError, msg=f"key {bad!r} should raise"):
+                    get_memory_file_path(bad, base_dir=base)
+
+    def test_memory_path_rejects_traversal_in_namespace(self):
+        """Namespaces with traversal tokens or multiple segments must raise."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "memory")
+            for bad_ns in ("../evil", "a/b", "work/../x", ".."):
+                with self.assertRaises(ValueError, msg=f"namespace {bad_ns!r} should raise"):
+                    get_memory_file_path("key.md", namespace=bad_ns, base_dir=base)
 
     def test_memory_path_normal_key_still_works(self):
         """Normal keys keep working: namespaced paths inside base_dir."""

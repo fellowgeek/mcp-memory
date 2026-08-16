@@ -232,31 +232,48 @@ def validate_okf_conformance(raw_payload: str) -> Dict[str, Any]:
 def get_memory_file_path(key: str, namespace: str = "default", base_dir: str = "memory") -> str:
     """Determine physical file path for a given memory key and namespace.
 
-    The key is sanitized so it can never escape ``base_dir``: parent
-    segments (``..``) and absolute paths are rejected/normalized, and the
-    final resolved path is verified to stay inside the store.
+    Keys and namespaces are validated so they can never escape ``base_dir``:
+    empty keys, path-traversal tokens (``..`` / ``.``), backslash tricks and
+    multi-segment namespaces are rejected with ``ValueError``. The resolved
+    path is additionally verified to stay inside the store root.
     """
+    def _reject_traversal(parts, label):
+        for p in parts:
+            if p in (".", ".."):
+                raise ValueError(
+                    f"Invalid {label}: traversal tokens not allowed."
+                )
+
+    if not key or not key.strip():
+        raise ValueError("Memory key cannot be empty.")
+
+    # Normalize backslashes so Windows-style escapes cannot sneak through.
+    key_parts = [p for p in key.replace("\\", "/").split("/") if p]
+    _reject_traversal(key_parts, "memory key")
+
     clean_key = key.lstrip("/").rstrip("/")
     if not clean_key.endswith(".md"):
         clean_key += ".md"
 
     if namespace and namespace != "default":
+        ns_parts = [p for p in namespace.replace("\\", "/").split("/") if p]
+        _reject_traversal(ns_parts, "namespace")
+        if len(ns_parts) > 1:
+            raise ValueError(
+                f"Invalid namespace '{namespace}': must be a single path segment."
+            )
         candidate = os.path.join(base_dir, namespace, clean_key)
     else:
         candidate = os.path.join(base_dir, clean_key)
 
-    # Containment check: resolve symlinks/.. and require the result to
-    # remain inside the store root.
+    # Belt-and-braces containment check: resolve symlinks/.. and require the
+    # result to remain inside the store root.
     root = os.path.realpath(base_dir)
     resolved = os.path.realpath(candidate)
     if not (resolved == root or resolved.startswith(root + os.sep)):
-        # Escape attempt — clamp to a safe in-store path using the key's
-        # final component only.
-        safe_name = os.path.basename(clean_key)
-        if namespace and namespace != "default":
-            candidate = os.path.join(base_dir, namespace, safe_name)
-        else:
-            candidate = os.path.join(base_dir, safe_name)
+        raise ValueError(
+            f"Invalid memory key '{key}': resolves outside the memory store."
+        )
     return candidate
 
 

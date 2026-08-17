@@ -9,7 +9,13 @@ import os
 import sqlite3
 from typing import Any, Dict, List, Optional, Union
 
-from okf_engine import parse_okf, remove_memory_from_disk, serialize_okf, sync_memory_to_disk
+from okf_engine import (
+    get_memory_file_path,
+    parse_okf,
+    remove_memory_from_disk,
+    serialize_okf,
+    sync_memory_to_disk,
+)
 
 from pathlib import Path
 
@@ -166,6 +172,12 @@ def store_memory(
     """Store or update a memory record in SQLite formatted as OKF v0.2 and sync to disk .md file."""
     target_path = db_path if db_path is not None else get_default_db_path(override_root=project_root)
     target_dir = memories_dir if memories_dir is not None else get_default_memories_dir(override_root=project_root)
+
+    # Resolve the destination before touching SQLite so a key or namespace that
+    # cannot be written raises here rather than after the row is committed.
+    # sync_memory_to_disk recomputes the same path; this call is for the check.
+    get_memory_file_path(key=key, namespace=namespace, base_dir=target_dir)
+
     init_db(target_path)
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     tags_list = tags if tags is not None else []
@@ -361,6 +373,10 @@ def delete_memory(
     """Delete a memory record by key and namespace from SQLite and disk."""
     target_path = db_path if db_path is not None else get_default_db_path(override_root=project_root)
     target_dir = memories_dir if memories_dir is not None else get_default_memories_dir(override_root=project_root)
+
+    # Same check as store_memory: a key we cannot resolve must not drop the row.
+    get_memory_file_path(key=key, namespace=namespace, base_dir=target_dir)
+
     init_db(target_path)
     with get_connection(target_path) as conn:
         cursor = conn.cursor()

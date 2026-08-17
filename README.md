@@ -22,7 +22,7 @@ Memory records are formatted using the [**Open Knowledge Format (OKF v0.2)**](ht
 
 ## MCP Tools
 
-The server exposes four primary MCP tools to interacting agents:
+The server exposes six MCP tools to interacting agents:
 
 ### 1. `memory_store`
 Stores or updates a memory record in OKF v0.2 format.
@@ -57,6 +57,13 @@ Finds memories matching keywords, tags, or namespace filters.
   - `tags` *(array of strings, optional)*: Filter by specific tags.
   - `namespace` *(string, optional)*: Scope search to a namespace.
   - `limit` *(integer, optional, default: 10)*: Maximum number of results.
+
+### 4. `memory_delete`
+Removes a specific memory record by its key and namespace, from both the SQLite index and the `memory/` bundle on disk.
+* **Parameters:**
+  - `key` *(string, required)*: The key of the memory to remove.
+  - `project_root` *(string, required)*: Absolute path to the active project root directory.
+  - `namespace` *(string, optional, default: `"default"`)*: Scope/namespace.
 
 ### 5. `memory_get_last`
 **AGENT DIRECTIVE (Session Start):** Retrieves the last recorded session checkpoint (`system/last_memory`) so the AI agent immediately knows where work was left off when opening a project or starting a session.

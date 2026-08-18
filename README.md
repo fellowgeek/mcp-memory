@@ -176,7 +176,7 @@ command = "/ABSOLUTE/PATH/TO/run.sh"
 Run the automated test suite to verify OKF serialization, SQLite database operations, and FastMCP tool execution:
 
 ```bash
-python3 test_memory.py
+python3 -m unittest discover -v
 ```
 
 ## Storage & Environment Variables
